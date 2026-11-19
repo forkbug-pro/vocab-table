@@ -1,0 +1,835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vocab Table</title>
+<style>
+  :root {
+    --bg:#f6f7fb; --card:#ffffff; --line:#e3e6ef; --text:#1c2030; --dim:#6b7288;
+    --accent:#d9473f; --pinyin:#2563eb; --btn:#1c2030; --btn-text:#fff; --warn:#fff4d6; --ok:#1f9d63;
+    --shadow:0 1px 2px rgba(20,25,50,.06), 0 8px 24px rgba(20,25,50,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0f1218; --card:#171b24; --line:#262c39; --text:#e8eaf1; --dim:#8a92a8;
+      --accent:#ff6b62; --pinyin:#7aa2ff; --btn:#e8eaf1; --btn-text:#0f1218; --warn:#3a3114; --ok:#3ecf8e;
+      --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
+    }
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.5 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    display:flex; justify-content:center; padding:28px 16px 60px;
+  }
+  .wrap { width:100%; max-width:920px; display:flex; flex-direction:column; gap:16px; }
+  header h1 { margin:0; font-size:26px; letter-spacing:-.01em; }
+  header p { margin:2px 0 0; color:var(--dim); min-height:1.5em; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  button {
+    font:inherit; font-weight:600; border:0; border-radius:10px; padding:10px 16px; cursor:pointer;
+    background:var(--btn); color:var(--btn-text); transition:transform .12s ease, opacity .12s ease;
+  }
+  button:hover { opacity:.88; } button:active { transform:scale(.97); }
+  button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+  [hidden] { display:none !important; }
+  .side { margin-left:auto; display:flex; gap:14px; align-items:center; }
+  .toggles { display:flex; gap:14px; color:var(--dim); font-size:14px; }
+  .modes { display:inline-flex; flex-wrap:wrap; gap:2px; padding:3px; background:var(--card); border:1px solid var(--line); border-radius:12px; }
+  .modes button { background:transparent; color:var(--dim); padding:7px 12px; border-radius:9px; }
+  .modes button.on { background:var(--btn); color:var(--btn-text); }
+  td.secret { cursor:pointer; }
+  td.secret > span {
+    display:inline-block; min-width:4.5em; border-radius:8px; color:transparent; user-select:none;
+    background:color-mix(in srgb, var(--dim) 28%, transparent); transition:background .15s ease, color .15s ease;
+  }
+  td.secret.shown > span { min-width:0; background:transparent; color:inherit; user-select:auto; }
+  .toggles label { display:flex; gap:6px; align-items:center; cursor:pointer; user-select:none; }
+  .meta { color:var(--dim); font-size:14px; min-height:1.4em; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+  .empty {
+    border:2px dashed var(--line); border-radius:16px; padding:48px 20px; text-align:center; color:var(--dim);
+  }
+  .empty b { color:var(--text); }
+  table { width:100%; border-collapse:collapse; }
+  thead th {
+    position:sticky; top:0; background:var(--card); text-align:left; font-size:12px; text-transform:uppercase;
+    letter-spacing:.07em; color:var(--dim); padding:12px 16px; border-bottom:1px solid var(--line);
+  }
+  tbody tr { animation:rise .35s ease both; animation-delay:calc(var(--i) * 18ms); transition:background .15s ease; }
+  tbody tr:hover { background:color-mix(in srgb, var(--pinyin) 8%, transparent); }
+  tbody tr + tr td { border-top:1px solid var(--line); }
+  td { padding:12px 16px; vertical-align:top; }
+  td.no { color:var(--dim); width:48px; font-variant-numeric:tabular-nums; }
+  td.zh { font-size:22px; font-weight:600; white-space:nowrap; cursor:default; width:1%; }
+  td.py { color:var(--pinyin); white-space:nowrap; width:1%; }
+  td.en { color:var(--text); }
+  td.py, td.en { transition:filter .2s ease; }
+  table.hide-py td.py, table.hide-en td.en { filter:blur(7px); user-select:none; }
+  table.hide-py td.py:hover, table.hide-en td.en:hover { filter:none; user-select:auto; }
+  tr.warn { background:var(--warn); }
+  tr.warn td.no::after { content:" \26A0"; color:#c58a00; }
+  details { color:var(--dim); }
+  summary { cursor:pointer; user-select:none; }
+  textarea {
+    width:100%; min-height:140px; margin:10px 0; padding:12px; border-radius:12px; font:13px/1.4 ui-monospace, Consolas, monospace;
+    background:var(--card); color:var(--text); border:1px solid var(--line); resize:vertical;
+  }
+  #toast {
+    position:fixed; left:50%; bottom:24px; transform:translate(-50%, 20px); opacity:0; pointer-events:none;
+    background:var(--btn); color:var(--btn-text); padding:10px 16px; border-radius:999px; font-weight:600;
+    transition:opacity .25s ease, transform .25s ease;
+  }
+  #toast.show { opacity:1; transform:translate(-50%, 0); }
+
+  .pad { padding:22px; }
+  #practice h2 { margin:0 0 4px; font-size:20px; }
+  .hint { color:var(--dim); font-size:14px; margin:0; }
+  input[type=text], input[type=number], input[type=url], input[type=password] {
+    font:inherit; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--text);
+  }
+  input:focus { outline:2px solid color-mix(in srgb, var(--pinyin) 55%, transparent); outline-offset:1px; }
+  .setup { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0 4px; }
+  .setup input[type=number] { width:90px; }
+  .settings { margin-top:18px; }
+  .settings .fields { display:grid; gap:8px; margin:10px 0; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .qlist { display:flex; flex-direction:column; gap:12px; margin:16px 0; }
+  .q { display:flex; gap:14px; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--card); transition:border-color .2s ease, background .2s ease; }
+  .q .qn { color:var(--dim); font-variant-numeric:tabular-nums; min-width:1.6em; padding-top:6px; }
+  .q .qbody { flex:1; display:flex; flex-direction:column; gap:10px; min-width:0; }
+  .qtitle.zh { font-size:30px; font-weight:700; line-height:1.25; }
+  .qtitle.en { font-size:18px; font-weight:600; }
+  .q input.ans { width:100%; }
+  .q.ok { border-color:var(--ok); background:color-mix(in srgb, var(--ok) 9%, var(--card)); }
+  .q.bad { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .res .verdict { font-weight:700; }
+  .q.ok .verdict { color:var(--ok); } .q.bad .verdict { color:var(--accent); }
+  .res .ref { color:var(--dim); font-size:14px; }
+  .summary { padding:18px; border-radius:14px; border:1px solid var(--line); background:var(--bg); display:flex; flex-direction:column; gap:6px; margin-top:12px; }
+  .summary .score { font-size:32px; font-weight:800; }
+  .submitrow { display:flex; justify-content:center; }
+  .submitrow button { padding:12px 40px; }
+  button:disabled { opacity:.5; cursor:default; }
+  #home, #lessonView { display:flex; flex-direction:column; gap:16px; }
+  .label { margin:6px 0 -6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:var(--dim); }
+  .list { display:flex; flex-direction:column; gap:10px; }
+  .lrow { display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap; padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:var(--card); box-shadow:var(--shadow); }
+  .lrow .ltitle { font-weight:700; font-size:17px; }
+  .lrow.cur { padding:24px 22px; border-color:color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  .lrow.cur .ltitle { font-size:24px; letter-spacing:-.01em; }
+  button.small { padding:6px 11px; font-size:13px; }
+  .foot { display:flex; gap:10px; align-items:center; justify-content:center; flex-wrap:wrap; color:var(--dim); font-size:13px; margin-top:8px; }
+  .foot input { padding:6px 10px; }
+  .formcard .fields { display:grid; gap:10px; margin:12px 0; }
+  .formcard textarea { min-height:200px; margin:0; }
+  .errcard { padding:22px; border:1px solid var(--accent); border-radius:16px; background:var(--card); display:flex; flex-direction:column; gap:12px; }
+  td.snd { width:1%; padding-left:0; padding-right:4px; }
+  .spk { padding:4px 9px; font-size:14px; border-radius:8px; line-height:1.3; }
+  @keyframes rise { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+  @media (max-width:640px) {
+    td.zh { font-size:19px; } td, thead th { padding:10px 10px; } td.py { white-space:normal; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Vocab Table</h1>
+    <p id="lesson"></p>
+  </header>
+  <div class="meta" id="status"></div>
+
+  <section id="home" hidden></section>
+
+  <section id="lessonView" hidden>
+    <div class="bar">
+      <button id="back" class="ghost">&larr; All lessons</button>
+      <div class="modes" id="modes">
+        <button data-mode="table" class="on">Table</button>
+        <button data-mode="read">Reading study</button>
+        <button data-mode="type">Typing study</button>
+        <button data-mode="pread">Reading practice</button>
+        <button data-mode="ptype">Typing practice</button>
+      </div>
+      <div class="side">
+        <div class="toggles" id="toggles">
+          <label><input type="checkbox" id="showPy" checked> Pinyin</label>
+          <label><input type="checkbox" id="showEn" checked> English</label>
+        </div>
+        <button id="revealAll" class="ghost" hidden>Reveal all</button>
+      </div>
+    </div>
+    <div class="meta" id="meta"></div>
+
+    <div class="card" id="card" hidden>
+      <table id="table">
+        <thead><tr id="head"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+
+    <section class="card pad" id="practice" hidden></section>
+  </section>
+
+  <footer class="foot" id="foot"></footer>
+</div>
+<div id="toast"></div>
+
+<script>
+// ==PARSER START==
+const HAN = /\p{Script=Han}/u;
+const PUNCT = /[\s.\u2026\u3002\uff0c\u3001\uff1f\uff01\uff08\uff09()\/\u00b7~\uff5e:\uff1a;\uff1b\-\u2014\u201c\u201d"'\u300a\u300b]/;
+const PDF_FIX = { "ä":"ā","ë":"ē","ï":"ī","ö":"ō","â":"ǎ","ê":"ě","î":"ǐ","ô":"ǒ","û":"ǔ",
+                  "Ä":"Ā","Ë":"Ē","Ï":"Ī","Ö":"Ō","Â":"Ǎ","Ê":"Ě","Î":"Ǐ","Ô":"Ǒ","Û":"Ǔ" };
+const FINALS = "iang|iong|uang|ueng|ang|eng|ing|ong|iao|ian|uai|uan|ai|an|ao|ei|en|er|ia|ie|in|iu|ou|ua|ue|ui|un|uo|a|e|i|o|u|v|ve|van|vn";
+const SYL = new RegExp("^(?:zh|ch|sh|[bpmfdtnlgkhjqxrzcsyw])?(?:" + FINALS + ")$");
+const JUNK = [/ArchChinese/i, /^Generated by/i, /^Page\s+\d+/i, /^[A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}/,
+              /^No\.?\s+Chinese\s+Pinyin/i, /^Book\s*\d+\s*Lesson/i, /^Chinese Vocab List/i];
+
+// PDF exports turn some tone marks into look-alike letters (e.g. kêyî -> kěyǐ). Undo that.
+function fixPinyin(s) { return s.replace(/[äëïöâêîôûÄËÏÖÂÊÎÔÛ]/g, c => PDF_FIX[c]); }
+
+function isSyllable(t) {
+  const base = fixPinyin(t).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return SYL.test(base);
+}
+
+function splitEntry(no, entryLines) {
+  const chunk = entryLines.join("\n").replace(/-\s*\n\s*/g, "-").replace(/\s+/g, " ").trim();
+
+  // Chinese = leading run of Han characters and punctuation (up to the first Latin letter or digit)
+  let i = 0;
+  while (i < chunk.length && (HAN.test(chunk[i]) || PUNCT.test(chunk[i]))) i++;
+  const chinese = chunk.slice(0, i).trim().replace(/\.{2,}/g, "…");
+  const rest = chunk.slice(i);
+  const N = [...chinese].filter(c => HAN.test(c)).length;
+
+  // Pinyin = exactly N syllables (one per Han character), so English words are never swallowed
+  const unit = /\s+|[.\u2026]+|[\p{L}\p{M}']+|[^\s]/uy;
+  let pos = 0, count = 0, end = 0;
+  while (pos < rest.length) {
+    unit.lastIndex = pos;
+    const m = unit.exec(rest);
+    if (!m) break;
+    const t = m[0];
+    if (/^\s+$/.test(t)) { pos += t.length; continue; }
+    if (/^[.\u2026]+$/.test(t)) {
+      if (count === 0) break;
+      if (count >= N && pos !== end) break;
+      pos += t.length; end = pos; continue;
+    }
+    if (/^[\p{L}\p{M}']+$/u.test(t)) {
+      const parts = t.split("'").filter(Boolean);
+      if (count + parts.length > N || !parts.every(isSyllable)) break;
+      count += parts.length; pos += t.length; end = pos; continue;
+    }
+    break;
+  }
+  const pinyin = fixPinyin(rest.slice(0, end).trim()).replace(/\.{2,}/g, "…").replace(/…(?=\p{L})/gu, "… ");
+  const english = rest.slice(end).trim().replace(/^[,;:\s]+|[,;\s]+$/g, "");
+  return { no, chinese, pinyin, english, warn: !chinese || !english || count !== N };
+}
+
+function parseVocab(raw) {
+  const text = raw.replace(/\r/g, "").replace(/\u00a0/g, " ");
+  const title = (text.match(/Book\s*\d+\s*Lesson\s*\d+[^\n]*/i) || [""])[0].trim();
+  const lines = text.split("\n").map(l => l.trim()).filter(l => l && !JUNK.some(r => r.test(l)));
+  const numLine = /^(\d{1,3})(?:\s+(.*))?$/;
+
+  // first entry = a number followed by Han characters (same line, or on the next line)
+  let start = -1, expected = 1;
+  for (let i = 0; i < lines.length; i++) {
+    const m = lines[i].match(numLine);
+    if (!m) continue;
+    if (HAN.test((m[2] || "") + " " + (lines[i + 1] || ""))) { start = i; expected = +m[1]; break; }
+  }
+  if (start < 0) return { title, entries: [] };
+
+  // entries are numbered in sequence, which keeps stray digits in the English from splitting anything
+  const groups = [];
+  let cur = null;
+  for (let i = start; i < lines.length; i++) {
+    const m = lines[i].match(numLine);
+    if (m && +m[1] === expected) {
+      cur = { no: expected, lines: m[2] ? [m[2]] : [] };
+      groups.push(cur);
+      expected++;
+      continue;
+    }
+    if (cur) cur.lines.push(lines[i]);
+  }
+  return { title, entries: groups.map(g => splitEntry(g.no, g.lines)) };
+}
+// ==PARSER END==
+
+const $ = s => document.querySelector(s);
+const ADMIN_STORE = "vocab_admin_key", RATE_KEY = "vocab_submit_times";
+// The Cloudflare Worker that stores the lessons and grades answers (it holds the secrets, not this page).
+const WORKER_URL = "https://floral-snow-9246.spoonslug.workers.dev";
+// Practice rate limit per browser: at most MAX_SUBMITS submissions in any WINDOW_MS.
+const MAX_SUBMITS = 2, WINDOW_MS = 60000;
+
+const MODES = ["table", "read", "type", "pread", "ptype"];
+const LABELS = { no: "#", zh: "Chinese", snd: "", py: "Pinyin", en: "English" };
+const FIELD = { zh: "chinese", py: "pinyin", en: "english" };
+// study modes: column order, and which columns start hidden (click a blank to reveal it)
+const ORDER  = { table: ["no", "zh", "snd", "py", "en"], read: ["no", "zh", "py", "en"], type: ["no", "en", "zh", "py"] };
+const SECRET = { table: [], read: ["py", "en"], type: ["zh", "py"] };
+const KIND = { pread: "read", ptype: "type" };
+
+const state = { data: null, mode: "table", lessonId: null };
+let lessons = { current: null, list: [] };
+let adminKey = load("vocab_admin_key") || "", isAdmin = false;
+let formFor = null;          // null | "new" | lesson id (admin form on the home screen)
+let quiz = null, waiting = false, nav = 0;
+
+function load(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch {} }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function toast(msg, ms = 2200) {
+  const t = $("#toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast.id); toast.id = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+function el(tag, props = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") n.className = v;
+    else if (k === "text") n.textContent = v;
+    else if (k === "value") n.value = v;
+    else if (k.startsWith("on")) n[k] = v;
+    else n.setAttribute(k, v);
+  }
+  kids.flat().forEach(c => { if (c) n.append(c); });
+  return n;
+}
+const setStatus = msg => { $("#status").textContent = msg || ""; };
+
+// ---------- Worker API ----------
+// Talks to the Worker over a WebSocket first (some networks block fetch() to workers.dev but allow
+// WebSockets), and falls back to plain fetch() if the socket can't connect.
+let sock = null, sockWait = null, sockFailedAt = 0, nextId = 0;
+const pending = new Map();
+
+function connectSocket() {
+  if (sock && sock.readyState === 1) return Promise.resolve(sock);
+  if (sockWait) return sockWait;
+  sockWait = new Promise((resolve, reject) => {
+    let s, done = false;
+    const fail = msg => { if (done) return; done = true; sockWait = null; sockFailedAt = Date.now(); try { s && s.close(); } catch {} reject(new Error(msg)); };
+    try { s = new WebSocket(WORKER_URL.replace(/^http/, "ws")); } catch (e) { return fail(e.message); }
+    const timer = setTimeout(() => fail("socket timed out"), 8000);
+    s.onopen = () => { done = true; clearTimeout(timer); sock = s; sockWait = null; resolve(s); };
+    s.onerror = () => { clearTimeout(timer); fail("socket error"); };
+    s.onclose = () => {
+      clearTimeout(timer);
+      if (sock === s) sock = null;
+      pending.forEach(p => p.reject(new Error("connection closed")));
+      pending.clear();
+      fail("socket closed");
+    };
+    s.onmessage = ev => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; }
+      const p = pending.get(m.id);
+      if (p) { pending.delete(m.id); p.resolve(m); }
+    };
+  });
+  return sockWait;
+}
+
+async function viaSocket(s, method, path, body, admin) {
+  return new Promise((resolve, reject) => {
+    const id = ++nextId;
+    const timer = setTimeout(() => { pending.delete(id); reject(new Error("timed out")); }, 30000);
+    pending.set(id, { resolve: v => { clearTimeout(timer); resolve({ status: v.status, data: v.data || {} }); }, reject: e => { clearTimeout(timer); reject(e); } });
+    s.send(JSON.stringify({ id, method, path, body, adminKey: admin ? adminKey : undefined }));
+  });
+}
+
+async function viaFetch(method, path, body, admin) {
+  const headers = {};
+  if (body) headers["Content-Type"] = "application/json";
+  if (admin) headers["X-Admin-Key"] = adminKey;
+  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const res = await fetch(WORKER_URL + path, { method, headers, body: body ? JSON.stringify(body) : undefined, signal: ctrl.signal });
+    return { status: res.status, data: await res.json().catch(() => ({})) };
+  } catch (e) {
+    throw new Error(e.name === "AbortError" ? "timed out" : e.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function api(path, { method = "GET", body, admin = false } = {}) {
+  let r, s = null;
+  if (Date.now() - sockFailedAt > 60000) { try { s = await connectSocket(); } catch {} }   // after a failure, use fetch for a minute
+  r = s ? await viaSocket(s, method, path, body, admin) : await viaFetch(method, path, body, admin);
+  if (r.status < 200 || r.status >= 300) throw new Error(r.data.error || "HTTP " + r.status);
+  return r.data;
+}
+
+async function loadLessons() {
+  const d = await api("/lessons");
+  lessons = { current: d.current, list: d.lessons || [] };
+}
+
+// ---------- screens ----------
+function route() {
+  const m = location.hash.match(/^#l=([\w-]+)$/);
+  if (m) openLesson(m[1]); else showHome();
+}
+window.addEventListener("hashchange", route);
+
+async function showHome() {
+  const t = ++nav;
+  quiz = null; state.data = null; state.lessonId = null;
+  $("#lessonView").hidden = true; $("#home").hidden = true; $("#lesson").textContent = "";
+  setStatus("Loading lessons...");
+  try {
+    await loadLessons();
+    if (t !== nav) return;
+    setStatus(""); $("#home").hidden = false; renderHome();
+  } catch (e) {
+    if (t !== nav) return;
+    showError("Couldn't load the lessons (" + e.message + ").");
+  }
+}
+
+function showError(msg) {
+  setStatus("");
+  $("#lessonView").hidden = true;
+  const h = $("#home");
+  h.hidden = false; h.textContent = "";
+  h.append(el("div", { class: "errcard" },
+    el("div", { text: msg }),
+    el("div", { class: "actions" },
+      el("button", { text: "Try again", onclick: route }),
+      el("button", { class: "ghost", text: "All lessons", onclick: () => { if (location.hash) location.hash = ""; else route(); } }))));
+}
+
+function lessonRow(l, isCur) {
+  const actions = el("div", { class: "actions" },
+    el("button", { class: isCur ? "" : "ghost", text: "Open", onclick: () => { location.hash = "l=" + l.id; } }));
+  if (isAdmin) {
+    if (!isCur) actions.append(el("button", { class: "ghost small", text: "Make current", onclick: () => adminCall("/admin/current", { method: "POST", body: { id: l.id } }, "Current lesson set") }));
+    actions.append(
+      el("button", { class: "ghost small", text: "Edit", onclick: () => { formFor = l.id; renderHome(); } }),
+      confirmButton("Delete", () => adminCall("/admin/lessons/" + l.id, { method: "DELETE" }, "Deleted")));
+  }
+  return el("div", { class: "lrow" + (isCur ? " cur" : "") },
+    el("div", { class: "linfo" },
+      el("div", { class: "ltitle", text: l.title || "Untitled lesson" }),
+      el("div", { class: "hint", text: (l.words || 0) + " words" })),
+    actions);
+}
+
+function renderHome() {
+  const h = $("#home");
+  h.textContent = "";
+  if (isAdmin) h.append(adminPanel());
+  const cur = lessons.list.find(l => l.id === lessons.current);
+  const past = lessons.list.filter(l => l !== cur).reverse();   // newest first
+  h.append(
+    el("p", { class: "label", text: "Current lesson" }),
+    cur ? lessonRow(cur, true)
+        : el("div", { class: "empty", text: lessons.list.length ? "No current lesson has been picked yet." : "No lessons have been added yet." }));
+  if (past.length) h.append(el("p", { class: "label", text: "Past lessons" }), el("div", { class: "list" }, past.map(l => lessonRow(l, false))));
+}
+
+// ---------- admin ----------
+function confirmButton(label, action) {
+  let armed = false, timer;
+  const b = el("button", { class: "ghost small", text: label });
+  b.onclick = () => {
+    if (!armed) { armed = true; b.textContent = "Sure?"; timer = setTimeout(() => { armed = false; b.textContent = label; }, 3000); return; }
+    clearTimeout(timer); action();
+  };
+  return b;
+}
+
+async function adminCall(path, opts, doneMsg) {
+  try {
+    await api(path, { ...opts, admin: true });
+    await loadLessons();
+    renderHome();
+    toast(doneMsg);
+  } catch (e) { toast("Failed: " + e.message, 5000); }
+}
+
+async function testAI() {
+  toast("Testing AI grading...");
+  try {
+    const r = await gradeWithAI([{ chinese: "需要", english: "to need; require", answer: "need" }]);
+    toast(r[0] && r[0].correct ? "AI grading works" : "Connected, but the test answer wasn't marked correct", 4000);
+  } catch (e) { toast("AI grading failed: " + e.message, 5000); }
+}
+
+function adminPanel() {
+  if (formFor !== null) return lessonForm();
+  return el("div", { class: "card pad" }, el("div", { class: "bar" },
+    el("strong", { text: "Admin" }),
+    el("button", { text: "+ Add lesson", onclick: () => { formFor = "new"; renderHome(); } }),
+    el("button", { class: "ghost", text: "Test AI grading", onclick: testAI })));
+}
+
+function lessonForm() {
+  const editing = formFor === "new" ? null : lessons.list.find(l => l.id === formFor);
+  const name = el("input", { type: "text", placeholder: "Lesson name, e.g. Unit 3: Lesson 5", value: editing ? editing.title : "" });
+  const ta = el("textarea", { placeholder: editing ? "Leave empty to keep the current words, or paste a new list to replace them" : "Paste the vocab list here" });
+  const info = el("div", { class: "hint" });
+  ta.oninput = () => {
+    if (!ta.value.trim()) { info.textContent = ""; return; }
+    const p = parseVocab(ta.value);
+    info.textContent = p.entries.length ? p.entries.length + " words found" : "No vocab found in that text";
+    if (p.entries.length && p.title && !name.value.trim()) name.value = p.title;
+  };
+  const paste = el("button", { class: "ghost", text: "Paste from clipboard", onclick: async () => {
+    try { ta.value = await navigator.clipboard.readText(); ta.oninput(); }
+    catch { toast("Clipboard blocked, paste into the box instead"); ta.focus(); }
+  } });
+  const save = el("button", { text: editing ? "Save changes" : "Save lesson", onclick: async () => {
+    const raw = ta.value.trim();
+    let parsed = null;
+    if (raw) {
+      parsed = parseVocab(raw);
+      if (!parsed.entries.length) { toast("Couldn't find any vocab in that text"); return; }
+    } else if (!editing) { toast("Paste the vocab list first"); return; }
+    const title = name.value.trim() || (parsed && parsed.title) || "";
+    if (!title) { toast("Give the lesson a name"); return; }
+    const body = { title };
+    if (raw) { body.raw = raw; body.words = parsed.entries.length; }
+    save.disabled = true;
+    try {
+      if (editing) await api("/admin/lessons/" + editing.id, { method: "PUT", body, admin: true });
+      else await api("/admin/lessons", { method: "POST", body, admin: true });
+      formFor = null;
+      await loadLessons();
+      renderHome();
+      toast("Saved");
+    } catch (e) { save.disabled = false; toast("Failed: " + e.message, 5000); }
+  } });
+  const cancel = el("button", { class: "ghost", text: "Cancel", onclick: () => { formFor = null; renderHome(); } });
+  return el("div", { class: "card pad formcard" },
+    el("strong", { text: editing ? "Edit lesson" : "Add a lesson" }),
+    el("div", { class: "fields" }, name, ta, info),
+    el("div", { class: "actions" }, save, paste, cancel));
+}
+
+function renderFoot() {
+  const f = $("#foot");
+  f.textContent = "";
+  if (isAdmin) {
+    f.append(el("span", { text: "Admin mode" }), el("button", { class: "ghost small", text: "Log out", onclick: () => {
+      adminKey = ""; isAdmin = false; formFor = null; store(ADMIN_STORE, null); renderFoot();
+      if (!$("#home").hidden) showHome();
+    } }));
+    return;
+  }
+}
+
+// Admin login is hidden: press Shift+Q (when not typing in a box) to open it.
+function openAdminLogin() {
+  if (isAdmin) return;
+  const f = $("#foot");
+  f.textContent = "";
+  const key = el("input", { type: "password", placeholder: "Admin key", autocomplete: "off" });
+  const go = async () => {
+    adminKey = key.value.trim();
+    try {
+      await api("/admin/check", { admin: true });
+      isAdmin = true; store(ADMIN_STORE, adminKey); renderFoot();
+      if (!$("#home").hidden) showHome();
+      toast("Admin mode on");
+    } catch (e) { adminKey = ""; toast(e.message === "wrong admin key" ? "Wrong admin key" : "Failed: " + e.message, 4000); }
+  };
+  key.onkeydown = e => { if (e.key === "Enter") go(); if (e.key === "Escape") renderFoot(); };
+  f.append(key, el("button", { class: "small", text: "Unlock", onclick: go }), el("button", { class: "ghost small", text: "Cancel", onclick: renderFoot }));
+  key.focus();
+}
+document.addEventListener("keydown", e => {
+  if (e.code !== "KeyQ" || !e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (["INPUT", "TEXTAREA"].includes(e.target.tagName)) return;
+  e.preventDefault();
+  openAdminLogin();
+});
+
+// ---------- one lesson ----------
+async function openLesson(id) {
+  const t = ++nav;
+  quiz = null;
+  $("#home").hidden = true; $("#lessonView").hidden = true; $("#lesson").textContent = "";
+  setStatus("Loading lesson...");
+  try {
+    const d = await api("/lessons/" + encodeURIComponent(id));
+    if (t !== nav) return;
+    const parsed = parseVocab(d.raw);
+    if (!parsed.entries.length) throw new Error("this lesson has no readable words");
+    state.data = { ...parsed, title: d.title };
+    state.lessonId = id;
+    setStatus("");
+    $("#lessonView").hidden = false;
+    setMode("table");
+  } catch (e) {
+    if (t !== nav) return;
+    showError("Couldn't open that lesson (" + e.message + ").");
+  }
+}
+
+function renderTable() {
+  const { data, mode } = state;
+  const order = ORDER[mode], secret = SECRET[mode];
+
+  const head = $("#head");
+  head.textContent = "";
+  order.forEach(k => head.append(el("th", { text: LABELS[k] })));
+
+  const body = $("#rows");
+  body.textContent = "";
+  data.entries.forEach((e, i) => {
+    const tr = el("tr");
+    tr.style.setProperty("--i", Math.min(i, 40));
+    if (e.warn) { tr.classList.add("warn"); tr.title = "Parsing wasn't sure about this row, double check it"; }
+    order.forEach(k => {
+      const td = el("td", { class: k });
+      if (k === "no") {
+        td.textContent = e.no;
+      } else if (k === "snd") {
+        td.append(el("button", { class: "spk ghost", type: "button", title: "Play sound", "aria-label": "Play sound", "data-zh": e.chinese, text: "\uD83D\uDD0A" }));
+      } else {
+        if (secret.includes(k)) td.classList.add("secret");
+        td.append(el("span", { text: e[FIELD[k]] }));
+      }
+      tr.append(td);
+    });
+    body.append(tr);
+  });
+}
+
+// decides what is on screen for the current lesson + mode
+function show() {
+  const { data, mode } = state;
+  const practice = mode === "pread" || mode === "ptype";
+  $("#card").hidden = practice;
+  $("#practice").hidden = !practice;
+  $("#lesson").textContent = data.title;
+  const warns = data.entries.filter(e => e.warn).length;
+  $("#meta").textContent = data.entries.length + " words"
+    + (warns ? " · " + warns + " highlighted row" + (warns > 1 ? "s" : "") + " worth a quick check" : "")
+    + (mode === "read" || mode === "type" ? " · click a blank to reveal it" : "");
+  $("#revealAll").textContent = "Reveal all";
+  if (practice) startPractice(); else { quiz = null; renderTable(); }
+}
+
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll("#modes button").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+  $("#toggles").hidden = m !== "table";
+  $("#revealAll").hidden = !(m === "read" || m === "type");
+  applyToggles();
+  show();
+}
+
+// ---------- practice quizzes ----------
+// Always every word, always in the list's own order.
+const pool = () => state.data.entries.filter(e => e.chinese && e.english);
+
+function startPractice() {
+  const items = pool();
+  if (!items.length) { $("#practice").textContent = "This lesson has no words to quiz."; return; }
+  startQuiz(KIND[state.mode], items);
+}
+
+function startQuiz(kind, entries) {
+  quiz = { kind, entries, items: entries.map(e => ({ e, answer: "", correct: null, note: "" })), graded: false, source: "" };
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const kind = quiz.kind;
+  const box = $("#practice");
+  box.textContent = "";
+  const list = el("div", { class: "qlist" });
+  quiz.items.forEach((it, i) => {
+    const input = el("input", { type: "text", class: "ans", autocomplete: "off", autocapitalize: "off", spellcheck: "false",
+      placeholder: kind === "read" ? "English meaning" : "Chinese characters" });
+    input.value = it.answer;
+    input.oninput = () => { it.answer = input.value; };
+    input.onkeydown = e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const next = list.querySelectorAll("input")[i + 1];
+      (next || $("#submit")).focus();
+    };
+    const title = kind === "read" ? el("div", { class: "qtitle zh", text: it.e.chinese }) : el("div", { class: "qtitle en", text: it.e.english });
+    list.append(el("div", { class: "q", id: "q" + i },
+      el("div", { class: "qn", text: i + 1 }),
+      el("div", { class: "qbody" }, title, input, el("div", { class: "res" }))));
+  });
+  box.append(
+    el("h2", { text: (kind === "read" ? "Reading" : "Typing") + " practice · " + quiz.items.length + " questions" }),
+    el("div", { class: "summary", id: "summary", hidden: "" }),
+    list,
+    el("div", { class: "submitrow" }, el("button", { id: "submit", text: "Submit", onclick: submitQuiz }))
+  );
+}
+
+// ---- grading ----
+const norm = s => String(s).toLowerCase().replace(/\(.*?\)/g, " ").replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+function meanings(eng) { return [norm(eng), ...eng.split(/[;,\/]/).map(norm)].filter(Boolean); }
+function exactMatch(ans, eng) { const a = norm(ans); return !!a && meanings(eng).includes(a); }
+
+const hanOnly = s => s.replace(/[^\p{Script=Han}]/gu, "");
+
+async function gradeWithAI(items) {
+  const data = await api("/", { method: "POST", body: { items } });
+  if (!Array.isArray(data.results)) throw new Error("unexpected reply");
+  return data.results;
+}
+
+async function gradeReading() {
+  const pending = [];
+  quiz.items.forEach((it, i) => {
+    const a = it.answer.trim();
+    if (!a) { it.correct = false; it.note = "no answer"; return; }
+    if (exactMatch(a, it.e.english)) { it.correct = true; return; }
+    it.correct = false;
+    pending.push(i);
+  });
+  quiz.source = "exact";
+  if (!pending.length) return;
+  try {
+    const results = await gradeWithAI(pending.map(i => ({ chinese: quiz.items[i].e.chinese, english: quiz.items[i].e.english, answer: quiz.items[i].answer })));
+    results.forEach(r => {
+      const it = quiz.items[pending[r.id]];
+      if (it) { it.correct = r.correct === true; it.note = r.note || ""; }
+    });
+    quiz.source = "ai";
+  } catch (e) {
+    quiz.source = "fallback"; quiz.error = e.message;   // answers stay marked wrong unless they matched exactly
+  }
+}
+
+function gradeTyping() {
+  quiz.items.forEach(it => {
+    // two words can share the same English (e.g. 从 and 从...开始), so accept any of them
+    const same = state.data.entries.filter(e => norm(e.english) === norm(it.e.english));
+    const han = hanOnly(it.answer);
+    it.correct = !!han && same.some(e => han === hanOnly(e.chinese));
+  });
+  quiz.source = "typing";
+}
+
+// ---- submit rate limit: 2 per minute per browser, the next one waits for its turn ----
+function recentSubmits() {
+  let a = [];
+  try { a = JSON.parse(load(RATE_KEY) || "[]"); } catch {}
+  const now = Date.now();
+  return (Array.isArray(a) ? a : []).filter(t => typeof t === "number" && t > now - WINDOW_MS && t <= now + WINDOW_MS);
+}
+
+async function submitQuiz() {
+  if (!quiz || quiz.graded || waiting) return;
+  const q = quiz, btn = $("#submit");
+  btn.disabled = true;
+  if (!isAdmin) {
+    waiting = true;
+    while (recentSubmits().length >= MAX_SUBMITS) {
+      const secs = Math.ceil((Math.min(...recentSubmits()) + WINDOW_MS - Date.now()) / 1000);
+      btn.textContent = "Too many submissions. Grading in " + Math.max(secs, 1) + "s";
+      await sleep(250);
+      if (quiz !== q) { waiting = false; return; }
+    }
+    waiting = false;
+    if (quiz !== q) return;
+    store(RATE_KEY, JSON.stringify([...recentSubmits(), Date.now()]));
+  }
+  btn.textContent = q.kind === "read" ? "Grading..." : "Checking...";
+  document.querySelectorAll("#practice input.ans").forEach(i => { i.disabled = true; });
+  if (q.kind === "type") gradeTyping(); else await gradeReading();
+  if (quiz !== q) return;
+  q.graded = true;
+  showResults();
+}
+
+function showResults() {
+  const n = quiz.items.length, score = quiz.items.filter(i => i.correct).length;
+  quiz.items.forEach((it, i) => {
+    const q = $("#q" + i), res = q.querySelector(".res");
+    q.classList.add(it.correct ? "ok" : "bad");
+    res.textContent = "";
+    res.append(el("div", { class: "verdict", text: it.correct ? "Correct" : "Not quite" }));
+    res.append(el("div", { class: "ref", text: [it.e.chinese, it.e.pinyin, it.e.english].filter(Boolean).join("  ·  ") }));
+    if (it.note) res.append(el("div", { class: "ref", text: it.note }));
+  });
+
+  const kind = quiz.kind, entries = quiz.entries;
+  const src = quiz.source === "fallback" ? "AI grading wasn't available (" + quiz.error + "), so answers were graded by exact match only." : "";
+  const sum = $("#summary");
+  sum.hidden = false;
+  sum.textContent = "";
+  sum.append(
+    el("div", { class: "score", text: score + " / " + n + "  (" + Math.round(100 * score / n) + "%)" }),
+    src ? el("div", { class: "hint", text: src }) : null,
+    el("div", { class: "actions" },
+      el("button", { text: "Try again", onclick: () => startQuiz(kind, entries) }),
+      el("button", { class: "ghost", text: "Back to table", onclick: () => setMode("table") }))
+  );
+  $("#submit").hidden = true;
+  sum.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ---------- wiring ----------
+function applyToggles() {
+  const plain = state.mode === "table";
+  $("#table").classList.toggle("hide-py", plain && !$("#showPy").checked);
+  $("#table").classList.toggle("hide-en", plain && !$("#showEn").checked);
+}
+$("#showPy").onchange = $("#showEn").onchange = applyToggles;
+
+document.querySelectorAll("#modes button").forEach(b => { b.onclick = () => setMode(b.dataset.mode); });
+$("#back").onclick = () => { location.hash = ""; };
+
+$("#revealAll").onclick = () => {
+  const cells = [...document.querySelectorAll("td.secret")];
+  const anyHidden = cells.some(c => !c.classList.contains("shown"));
+  cells.forEach(c => c.classList.toggle("shown", anyHidden));
+  $("#revealAll").textContent = anyHidden ? "Hide all" : "Reveal all";
+};
+
+// click a Chinese word to hear it (uses your browser's Chinese voice, if it has one)
+function speak(text) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text.replace(/[.…]+/g, " "));
+  u.lang = "zh-CN"; u.rate = 0.85;
+  speechSynthesis.speak(u);
+}
+
+// study modes: click a blank to reveal it (click again to hide pinyin/English). The sound button exists in the Table tab only.
+$("#rows").addEventListener("click", e => {
+  const spk = e.target.closest("button.spk");
+  if (spk) { speak(spk.dataset.zh); return; }
+  const td = e.target.closest("td");
+  if (!td) return;
+  if (td.classList.contains("secret")) {
+    if (!td.classList.contains("shown")) { td.classList.add("shown"); return; }
+    if (!td.classList.contains("zh")) { td.classList.remove("shown"); return; }
+  }
+});
+
+(async () => {
+  if (adminKey) {
+    try { await api("/admin/check", { admin: true }); isAdmin = true; }
+    catch (e) { if (e.message === "wrong admin key") { adminKey = ""; store(ADMIN_STORE, null); } }
+  }
+  renderFoot();
+  route();
+})();
+</script>
+</body>
+</html>
